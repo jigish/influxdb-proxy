@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/influxdb/influxdb-go"
 	"log"
+	"math/rand"
 	"net"
 	"sync"
 	"time"
@@ -51,23 +52,19 @@ func testClient(laddr string) error {
 		return errors.New("UDP isn't enabled. Make sure to set config.IsUDP to true")
 	}
 
-	allSeries := [][]*influxdb.Series{}
-	allSeries = append(allSeries, []*influxdb.Series{
-		&influxdb.Series{
-			Name: "jigish.test",
-			Columns: []string{"time", "value"},
-			Points:  [][]interface{}{[]interface{}{time.Now().Unix()-5, -5}, []interface{}{time.Now().Unix(), 5}},
-		},
-	})
-	allSeries = append(allSeries, []*influxdb.Series{
-		&influxdb.Series{
-			Name: "jigish.test2",
-			Columns: []string{"time", "value"},
-			Points:  [][]interface{}{[]interface{}{time.Now().Unix()-3, -3}, []interface{}{time.Now().Unix(), 3}},
-		},
-	})
-
-	for _, series := range allSeries {
+	for {
+		series := []*influxdb.Series{
+			&influxdb.Series{
+				Name: "jigish.test",
+				Columns: []string{"time", "value"},
+				Points:  [][]interface{}{[]interface{}{time.Now().Unix(), rand.Intn(100)}},
+			},
+			&influxdb.Series{
+				Name: "jigish.test2",
+				Columns: []string{"time", "value"},
+				Points:  [][]interface{}{[]interface{}{time.Now().Unix(), rand.Intn(100)}},
+			},
+		}
 		data, err := json.Marshal(series)
 		if err != nil {
 			return err
@@ -166,6 +163,7 @@ func (p *InfluxDBProxy) BufferSeriesOrFlush(series *influxdb.Series) {
 			return
 		} else {
 			// series is too big to fit this time, close the array and flush
+			log.Println("FLUSH FOR SIZE")
 			p.Flush()
 		}
 	}
@@ -185,6 +183,7 @@ func (p *InfluxDBProxy) Flush() {
 	if p.bufN == 0 { return } // don't flush if we haven't written anything...
 	p.buf.WriteByte(byte(93)) // close array with "]"
 	p.bufN++
+	log.Println("SENDING: \n"+p.buf.String())
 	_, err := p.rconn.Write(p.buf.Bytes())
 	if err != nil {
 		log.Printf("error writing udp. retrying...")
@@ -208,6 +207,7 @@ func (p *InfluxDBProxy) flushOnInterval() {
 	for {
 		time.Sleep(p.flushInt)
 		p.buflock.Lock()
+		log.Println("FLUSH FOR TIME")
 		p.Flush()
 		p.buflock.Unlock()
 	}

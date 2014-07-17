@@ -163,7 +163,7 @@ func (p *InfluxDBProxy) BufferSeriesOrFlush(series *influxdb.Series) {
 			return
 		} else {
 			// series is too big to fit this time, close the array and flush
-			//log.Println("FLUSH FOR SIZE")
+			log.Println("Flush for size")
 			p.Flush()
 		}
 	}
@@ -183,7 +183,7 @@ func (p *InfluxDBProxy) Flush() {
 	if p.bufN == 0 { return } // don't flush if we haven't written anything...
 	p.buf.WriteByte(byte(93)) // close array with "]"
 	p.bufN++
-	//log.Println("SENDING: \n"+p.buf.String())
+	log.Println("-> Flushing")
 	_, err := p.rconn.Write(p.buf.Bytes())
 	if err != nil {
 		log.Printf("error writing udp. retrying...")
@@ -207,7 +207,7 @@ func (p *InfluxDBProxy) flushOnInterval() {
 	for {
 		time.Sleep(p.flushInt)
 		p.buflock.Lock()
-		//log.Println("FLUSH FOR TIME")
+		log.Println("Flush for time")
 		p.Flush()
 		p.buflock.Unlock()
 	}

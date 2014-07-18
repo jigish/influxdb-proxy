@@ -176,10 +176,10 @@ func (p *InfluxDBProxy) BufferSeries(series *influxdb.Series) {
 }
 
 func (p *InfluxDBProxy) send(buf *bytes.Buffer) {
-	log.Println("-> sending: \n"+buf.String())
+	log.Println("-> sending")
 	_, err := p.rconn.Write(buf.Bytes())
 	if err != nil {
-		log.Printf("error sending udp. retrying...")
+		log.Printf("-> error sending udp. retrying...")
 		// likely rconn was closed, lets try to reopen
 		p.rconn.Close() // force close just in case
 		p.rconn, err = net.DialUDP("udp", nil, p.raddr)
@@ -297,7 +297,7 @@ func (p *InfluxDBProxy) Flush() {
 func (p *InfluxDBProxy) flushOnInterval() {
 	for {
 		time.Sleep(p.flushInt)
-		log.Println("Flush")
+		log.Println("flush")
 		p.Flush()
 	}
 }

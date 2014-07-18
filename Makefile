@@ -18,3 +18,9 @@ build: clean
 
 fmt:
 	go fmt influx_proxy.go
+
+install: install-deps build
+	mkdir -p /opt/influxdb-proxy
+	cp -a bin /opt/influxdb-proxy/
+	cp -a deploy/upstart /etc/init/influxdb-proxy.conf
+	service influxdb-proxy start

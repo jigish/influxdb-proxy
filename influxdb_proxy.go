@@ -16,7 +16,7 @@ import (
 )
 
 const UDPMaxMessageSize = 2048 // max bytes we can send to InfluxDB.
-                               // see: https://github.com/influxdb/influxdb/blob/master/api/udp/api.go
+// see: https://github.com/influxdb/influxdb/blob/master/api/udp/api.go
 
 func main() {
 	var (
@@ -34,10 +34,14 @@ func main() {
 	flag.Parse()
 
 	if test {
-		if err := testClient(laddr, testSleep); err != nil { panic(err) }
+		if err := testClient(laddr, testSleep); err != nil {
+			panic(err)
+		}
 	} else {
 		proxy, err := NewInfluxDBProxy(laddr, raddr, flushInt)
-		if err != nil { panic(err) }
+		if err != nil {
+			panic(err)
+		}
 		log.Fatal(proxy.Listen())
 	}
 }
@@ -59,9 +63,9 @@ func testClient(laddr string, sleep time.Duration) error {
 		time.Sleep(sleep)
 		series := []*influxdb.Series{
 			&influxdb.Series{
-				Name: "influxdb-proxy.test",
+				Name:    "influxdb-proxy.test",
 				Columns: []string{"time", "value"},
-				Points:  [][]interface{}{
+				Points: [][]interface{}{
 					[]interface{}{time.Now().Unix(), rand.Intn(100)},
 					[]interface{}{time.Now().Unix(), rand.Intn(100)},
 					[]interface{}{time.Now().Unix(), rand.Intn(100)},
@@ -69,7 +73,7 @@ func testClient(laddr string, sleep time.Duration) error {
 				},
 			},
 			&influxdb.Series{
-				Name: "influxdb-proxy.test2",
+				Name:    "influxdb-proxy.test2",
 				Columns: []string{"time", "value"},
 				Points:  [][]interface{}{[]interface{}{time.Now().Unix(), rand.Intn(100)}},
 			},
@@ -83,7 +87,7 @@ func testClient(laddr string, sleep time.Duration) error {
 			log.Println(err.Error())
 			return err
 		}
-		log.Println("Sending: "+string(data))
+		log.Println("Sending: " + string(data))
 		_, err = udpConn.Write(data)
 		if err != nil {
 			return err
@@ -105,9 +109,13 @@ type InfluxDBProxy struct {
 
 func NewInfluxDBProxy(laddr, raddr string, flushInt time.Duration) (*InfluxDBProxy, error) {
 	l, err := net.ResolveUDPAddr("udp", laddr)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	r, err := net.ResolveUDPAddr("udp", raddr)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	return &InfluxDBProxy{
 		laddr:    l,
 		raddr:    r,
@@ -120,14 +128,18 @@ func NewInfluxDBProxy(laddr, raddr string, flushInt time.Duration) (*InfluxDBPro
 
 func (p *InfluxDBProxy) Listen() (err error) {
 	p.rconn, err = net.DialUDP("udp", nil, p.raddr)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer p.closeRConn() // don't directly close because rconn object can change
 	p.lconn, err = net.ListenUDP("udp", p.laddr)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer p.lconn.Close()
 
 	go p.flushOnInterval()
-	log.Println("Proxying from "+p.laddr.String()+" to "+p.raddr.String())
+	log.Println("Proxying from " + p.laddr.String() + " to " + p.raddr.String())
 	buffer := make([]byte, UDPMaxMessageSize)
 	for {
 		n, _, err := p.lconn.ReadFromUDP(buffer)
@@ -196,23 +208,23 @@ func (p *InfluxDBProxy) send(buf *bytes.Buffer) {
 
 func (p *InfluxDBProxy) splitAndSend(series *influxdb.Series) {
 	// hand-craft the message.
-	prefix := []byte("[{\"name\":\""+series.Name+"\",\"columns\":[\""+strings.Join(series.Columns, "\",\"")+"\"],\"points\":[")
+	prefix := []byte("[{\"name\":\"" + series.Name + "\",\"columns\":[\"" + strings.Join(series.Columns, "\",\"") + "\"],\"points\":[")
 	suffix := []byte("]}]")
 	if len(prefix)+len(suffix) >= UDPMaxMessageSize {
-		log.Println("impossible series with large metadata ("+series.Name+"). skipping.")
+		log.Println("impossible series with large metadata (" + series.Name + "). skipping.")
 	}
 	buf := bytes.NewBuffer(make([]byte, 0, UDPMaxMessageSize))
 	for _, point := range series.Points {
 		pointBytes, err := json.Marshal(point)
 		if err != nil {
-			log.Println("json point marshal error: "+err.Error())
+			log.Println("json point marshal error: " + err.Error())
 			continue
 		}
 		if buf.Len() == 0 {
 			buf.Write(prefix)
 		}
 		// have to add 1 for the comma thay we may have to add.
-		if len(pointBytes) + buf.Len() + 1 + len(suffix) <= UDPMaxMessageSize {
+		if len(pointBytes)+buf.Len()+1+len(suffix) <= UDPMaxMessageSize {
 			// we're within bounds
 			if buf.Len() > len(prefix) { // we already have a point in the buffer
 				buf.WriteByte(byte(44)) // ","
@@ -229,7 +241,7 @@ func (p *InfluxDBProxy) splitAndSend(series *influxdb.Series) {
 			buf.Truncate(0)
 			buf.Write(prefix)
 			// no +1 because there is no comma needed yet.
-			if len(pointBytes) + buf.Len() + len(suffix) <= UDPMaxMessageSize {
+			if len(pointBytes)+buf.Len()+len(suffix) <= UDPMaxMessageSize {
 				buf.Write(pointBytes)
 				continue
 			}
@@ -255,7 +267,7 @@ func (p *InfluxDBProxy) Flush() {
 	for _, series := range bufArr {
 		seriesBytes, err := json.Marshal(series)
 		if err != nil {
-			log.Println("json series marshal error: "+err.Error())
+			log.Println("json series marshal error: " + err.Error())
 			continue
 		}
 		if (len(seriesBytes) + buf.Len() + 2) <= UDPMaxMessageSize {
@@ -274,7 +286,7 @@ func (p *InfluxDBProxy) Flush() {
 			buf.WriteByte(byte(93)) // end array with "]"
 			p.send(buf)
 			buf.Truncate(0)
-			if len(seriesBytes) + 2 <= UDPMaxMessageSize {
+			if len(seriesBytes)+2 <= UDPMaxMessageSize {
 				// we're within the bounds, add it and move on
 				buf.WriteByte(byte(91)) // begin array with "["
 				buf.Write(seriesBytes)
@@ -303,6 +315,8 @@ func (p *InfluxDBProxy) flushOnInterval() {
 }
 
 func (p *InfluxDBProxy) closeRConn() {
-	if p.rconn == nil { return }
+	if p.rconn == nil {
+		return
+	}
 	p.rconn.Close()
 }
